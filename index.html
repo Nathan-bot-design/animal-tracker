@@ -8,58 +8,94 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet-draw/dist/leaflet.draw.css"/>
 
 <style>
-body { margin:0; font-family:Arial; display:flex; flex-direction:column; height:100vh; }
-#map { flex:1; }
+* {
+  box-sizing: border-box;
+}
 
-#info {
+body {
+  margin:0;
+  font-family: 'Segoe UI', Arial, sans-serif;
   display:flex;
-  flex-direction: column;
-  gap:10px;
-  padding:15px;
-  background:#111;
+  flex-direction:column;
+  height:100vh;
+  background:#0f172a;
+}
+
+/* INFO PANEL */
+#info {
+  background:#111827;
   color:white;
-  font-size:20px;
+  padding:15px;
+  box-shadow:0 4px 10px rgba(0,0,0,0.3);
+  z-index:1000;
 }
 
 #coords {
   display:flex;
-  justify-content: space-between;
-  font-size:18px;
+  justify-content:space-between;
+  flex-wrap:wrap;
+  font-size:16px;
 }
 
 #status {
-  font-weight:bold;
-  padding:15px;
-  border-radius:10px;
-  font-size:28px;
+  margin-top:10px;
+  padding:12px;
+  border-radius:8px;
   text-align:center;
-  color:white;
+  font-size:22px;
+  font-weight:bold;
+  transition:0.3s;
 }
 
-/* Make Leaflet Draw toolbar fully visible on mobile */
+/* MAP */
+#map {
+  flex:1;
+}
+
+/* Modern Floating Toolbar */
 .leaflet-draw-toolbar {
-  display: block !important;
-  position: absolute !important;
-  top: 10px;
-  left: 10px;
-  z-index: 1000;
+  background:white !important;
+  border-radius:12px !important;
+  padding:6px !important;
+  box-shadow:0 4px 15px rgba(0,0,0,0.3);
 }
 
 .leaflet-draw-toolbar a {
-  font-size: 24px !important;
-  width: 50px !important;
-  height: 50px !important;
-  line-height: 50px !important;
+  width:42px !important;
+  height:42px !important;
+  line-height:42px !important;
+  border-radius:8px !important;
+}
+
+.leaflet-control-zoom {
+  border-radius:12px !important;
+  overflow:hidden;
+  box-shadow:0 4px 15px rgba(0,0,0,0.3);
 }
 
 .leaflet-control-zoom a {
-  font-size: 24px !important;
+  width:42px !important;
+  height:42px !important;
+  line-height:42px !important;
 }
 
+/* Mobile Optimisation */
 @media (max-width: 768px) {
-  #info { font-size:18px; padding:10px; }
-  #coords { font-size:16px; }
-  #status { font-size:24px; padding:15px; }
+  #coords {
+    flex-direction:column;
+    gap:5px;
+  }
+
+  #status {
+    font-size:18px;
+  }
+
+  .leaflet-draw-toolbar a,
+  .leaflet-control-zoom a {
+    width:48px !important;
+    height:48px !important;
+    line-height:48px !important;
+  }
 }
 </style>
 </head>
@@ -68,8 +104,8 @@ body { margin:0; font-family:Arial; display:flex; flex-direction:column; height:
 
 <div id="info">
   <div id="coords">
-    <div>Latitude: <span id="lat">Waiting...</span></div>
-    <div>Longitude: <span id="lon">Waiting...</span></div>
+    <div>📍 Latitude: <span id="lat">Waiting...</span></div>
+    <div>📍 Longitude: <span id="lon">Waiting...</span></div>
   </div>
   <div id="status">Waiting...</div>
 </div>
@@ -85,20 +121,29 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/fireba
 import { getDatabase, ref, onValue, set } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyAc5p2eXYUXctH00qCOVlK-OGX9KmnQHqE",
-  databaseURL: "https://animaltracker-4c1ae-default-rtdb.firebaseio.com"
+  apiKey: "YOUR_API_KEY",
+  databaseURL: "YOUR_DATABASE_URL"
 };
 
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
-// Map
+// Initialize Map
 const map = L.map('map').setView([-1.2921, 36.8219], 15);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-const animalIcon = L.icon({
-  iconUrl: "https://cdn-icons-png.flaticon.com/512/616/616408.png",
-  iconSize: [50,50]
+// Better Custom Marker (Modern Pin)
+const animalIcon = L.divIcon({
+  html: `<div style="
+      background:#16a34a;
+      width:24px;
+      height:24px;
+      border-radius:50%;
+      border:4px solid white;
+      box-shadow:0 0 10px rgba(0,0,0,0.4);
+    "></div>`,
+  className: "",
+  iconSize: [24,24]
 });
 
 let marker = L.marker([-1.2921, 36.8219], {icon: animalIcon}).addTo(map);
@@ -109,7 +154,18 @@ map.addLayer(drawnItems);
 let currentPolygon = null;
 
 const drawControl = new L.Control.Draw({
-  draw: { polygon: true, rectangle: false, circle: false, marker: false, polyline: false },
+  draw: {
+    polygon: {
+      shapeOptions: {
+        color: '#16a34a',
+        weight: 3
+      }
+    },
+    rectangle:false,
+    circle:false,
+    marker:false,
+    polyline:false
+  },
   edit: { featureGroup: drawnItems }
 });
 map.addControl(drawControl);
@@ -122,25 +178,29 @@ map.on(L.Draw.Event.CREATED, function(e) {
 
   const coords = currentPolygon.getLatLngs()[0];
   coords.forEach((point,index) => {
-    set(ref(db, 'fence/' + index), { lat:point.lat, lon:point.lng });
+    set(ref(db, 'fence/' + index), {
+      lat:point.lat,
+      lon:point.lng
+    });
   });
 
   alert("Fence Saved!");
 });
 
-// Load Fence from DB
+// Load Fence
 onValue(ref(db,'fence'), snapshot => {
   drawnItems.clearLayers();
   const data = snapshot.val();
   if(!data) return;
+
   const coords = Object.values(data).map(p => [p.lat,p.lon]);
   if(coords.length>0){
-    currentPolygon = L.polygon(coords,{color:'green'});
+    currentPolygon = L.polygon(coords,{color:'#16a34a'});
     drawnItems.addLayer(currentPolygon);
   }
 });
 
-// Point in Polygon
+// Point In Polygon
 function pointInPolygon(point, vs){
   let x=point[0],y=point[1],inside=false;
   for(let i=0,j=vs.length-1;i<vs.length;j=i++){
@@ -151,13 +211,14 @@ function pointInPolygon(point, vs){
   return inside;
 }
 
-// Listen to Animal GPS
+// Listen To GPS
 onValue(ref(db,'animal'), snapshot=>{
   const data=snapshot.val();
   if(!data||!data.lat||!data.lon) return;
 
   const latVal=data.lat;
   const lonVal=data.lon;
+
   document.getElementById("lat").innerText = latVal.toFixed(6);
   document.getElementById("lon").innerText = lonVal.toFixed(6);
 
@@ -165,25 +226,28 @@ onValue(ref(db,'animal'), snapshot=>{
   map.setView([latVal,lonVal],17);
 
   if(!currentPolygon) return;
+
   const polyCoords = currentPolygon.getLatLngs()[0].map(p=>[p.lat,p.lng]);
   const inside = pointInPolygon([latVal,lonVal], polyCoords);
 
   const statusEl = document.getElementById("status");
+
   if(inside){
     statusEl.innerText="SAFE";
-    statusEl.style.background="green";
-    currentPolygon.setStyle({color:'green'});
+    statusEl.style.background="#16a34a";
+    currentPolygon.setStyle({color:'#16a34a'});
   } else {
     statusEl.innerText="OUTSIDE";
-    statusEl.style.background="red";
-    currentPolygon.setStyle({color:'red'});
+    statusEl.style.background="#dc2626";
+    currentPolygon.setStyle({color:'#dc2626'});
+
     if(Notification.permission==="granted"){
       new Notification("Animal Left Fence!");
     }
   }
 });
 
-// Request Notifications
+// Notifications
 if("Notification" in window){
   Notification.requestPermission();
 }
