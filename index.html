@@ -3,25 +3,92 @@
 <head>
     <title>Animal Tracker PRO</title>
     <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
     <link rel="stylesheet" href="https://unpkg.com/leaflet-draw/dist/leaflet.draw.css"/>
+
+    <!-- Icons -->
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+
     <style>
-        body { margin: 0; font-family: Arial; }
-        #map { height: 85vh; }
-        #info { padding: 12px; background: #111; color: white; font-size: 18px; }
-        #status { font-weight: bold; padding: 5px 10px; border-radius: 6px; }
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #0f172a;
+        }
+
+        #map {
+            height: 70vh;
+        }
+
+        #info {
+            background: #111827;
+            color: white;
+            padding: 15px;
+            border-radius: 15px 15px 0 0;
+            box-shadow: 0 -3px 10px rgba(0,0,0,0.4);
+        }
+
+        .row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+            font-size: 16px;
+        }
+
+        .material-icons {
+            margin-right: 8px;
+            color: #38bdf8;
+        }
+
+        #status {
+            font-weight: bold;
+            padding: 6px 12px;
+            border-radius: 20px;
+            margin-left: 10px;
+            font-size: 14px;
+        }
+
+        .safe {
+            background: #16a34a;
+        }
+
+        .outside {
+            background: #dc2626;
+        }
+
+        @media (max-width: 600px) {
+            #map {
+                height: 65vh;
+            }
+            .row {
+                font-size: 14px;
+            }
+        }
     </style>
 </head>
 <body>
 
-<div id="info">
-    Latitude: <span id="lat">Waiting...</span> |
-    Longitude: <span id="lon">Waiting...</span>
-    <br><br>
-    Status: <span id="status">Waiting...</span>
-</div>
-
 <div id="map"></div>
+
+<div id="info">
+    <div class="row">
+        <span class="material-icons">location_on</span>
+        <span>Lat: <b id="lat">Waiting...</b></span>
+    </div>
+
+    <div class="row">
+        <span class="material-icons">explore</span>
+        <span>Lon: <b id="lon">Waiting...</b></span>
+    </div>
+
+    <div class="row">
+        <span class="material-icons">pets</span>
+        Status:
+        <span id="status">Waiting...</span>
+    </div>
+</div>
 
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 <script src="https://unpkg.com/leaflet-draw/dist/leaflet.draw.js"></script>
@@ -32,7 +99,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/fireba
 import { getDatabase, ref, onValue, set, remove } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
 const firebaseConfig = {
-    apiKey: "AIzaSyAc5p2eXYUXctH00qCOVlK-OGX9KmnQHqE",
+    apiKey: "YOUR_API_KEY",
     authDomain: "animaltracker-4c1ae.firebaseapp.com",
     databaseURL: "https://animaltracker-4c1ae-default-rtdb.firebaseio.com",
     projectId: "animaltracker-4c1ae",
@@ -47,7 +114,13 @@ const db = getDatabase(app);
 const map = L.map('map').setView([-1.2921, 36.8219], 15);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-let marker = L.marker([-1.2921, 36.8219]).addTo(map);
+/* Custom Animal Icon */
+const animalIcon = L.icon({
+    iconUrl: "https://cdn-icons-png.flaticon.com/512/616/616408.png",
+    iconSize: [40, 40],
+});
+
+let marker = L.marker([-1.2921, 36.8219], {icon: animalIcon}).addTo(map);
 
 const drawnItems = new L.FeatureGroup();
 map.addLayer(drawnItems);
@@ -59,7 +132,7 @@ const drawControl = new L.Control.Draw({
 });
 map.addControl(drawControl);
 
-// Save fence
+/* Save Fence */
 map.on(L.Draw.Event.CREATED, function (e) {
 
     drawnItems.clearLayers();
@@ -79,7 +152,7 @@ map.on(L.Draw.Event.CREATED, function (e) {
     alert("Fence Saved!");
 });
 
-// Load fence
+/* Load Fence */
 onValue(ref(db, 'fence'), (snapshot) => {
 
     drawnItems.clearLayers();
@@ -97,7 +170,7 @@ onValue(ref(db, 'fence'), (snapshot) => {
     }
 });
 
-// Point in polygon
+/* Point in Polygon */
 function pointInPolygon(point, vs) {
     let x = point[0], y = point[1];
     let inside = false;
@@ -111,7 +184,7 @@ function pointInPolygon(point, vs) {
     return inside;
 }
 
-// Listen to animal
+/* Listen to Animal */
 onValue(ref(db, 'animal'), (snapshot) => {
 
     const data = snapshot.val();
@@ -120,8 +193,8 @@ onValue(ref(db, 'animal'), (snapshot) => {
     const lat = data.lat;
     const lon = data.lon;
 
-    document.getElementById("lat").innerText = lat;
-    document.getElementById("lon").innerText = lon;
+    document.getElementById("lat").innerText = lat.toFixed(6);
+    document.getElementById("lon").innerText = lon.toFixed(6);
 
     marker.setLatLng([lat, lon]);
     map.setView([lat, lon], 17);
@@ -135,17 +208,17 @@ onValue(ref(db, 'animal'), (snapshot) => {
 
     if (inside) {
         statusEl.innerText = "SAFE";
-        statusEl.style.background = "green";
+        statusEl.className = "safe";
         currentPolygon.setStyle({ color: 'green' });
         set(ref(db, 'animal/status'), "SAFE");
     } else {
         statusEl.innerText = "OUTSIDE";
-        statusEl.style.background = "red";
+        statusEl.className = "outside";
         currentPolygon.setStyle({ color: 'red' });
         set(ref(db, 'animal/status'), "OUTSIDE");
 
         if (Notification.permission === "granted") {
-            new Notification("Animal Left Fence!");
+            new Notification("⚠ Animal Left Fence!");
         }
     }
 });
