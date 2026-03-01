@@ -54,24 +54,19 @@ map.addLayer(drawnItems);
 let currentPolygon = null;
 
 const drawControl = new L.Control.Draw({
-    draw: {
-        polygon: true,
-        rectangle: false,
-        circle: false,
-        marker: false,
-        polyline: false
-    },
+    draw: { polygon: true, rectangle: false, circle: false, marker: false, polyline: false },
     edit: { featureGroup: drawnItems }
 });
 map.addControl(drawControl);
 
+// Save fence
 map.on(L.Draw.Event.CREATED, function (e) {
 
     drawnItems.clearLayers();
     currentPolygon = e.layer;
     drawnItems.addLayer(currentPolygon);
 
-    remove(ref(db, 'fence')); // 🔥 clear old fence
+    remove(ref(db, 'fence'));
 
     const coords = currentPolygon.getLatLngs()[0];
     coords.forEach((point, index) => {
@@ -84,6 +79,7 @@ map.on(L.Draw.Event.CREATED, function (e) {
     alert("Fence Saved!");
 });
 
+// Load fence
 onValue(ref(db, 'fence'), (snapshot) => {
 
     drawnItems.clearLayers();
@@ -101,6 +97,7 @@ onValue(ref(db, 'fence'), (snapshot) => {
     }
 });
 
+// Point in polygon
 function pointInPolygon(point, vs) {
     let x = point[0], y = point[1];
     let inside = false;
@@ -114,6 +111,7 @@ function pointInPolygon(point, vs) {
     return inside;
 }
 
+// Listen to animal
 onValue(ref(db, 'animal'), (snapshot) => {
 
     const data = snapshot.val();
@@ -139,10 +137,12 @@ onValue(ref(db, 'animal'), (snapshot) => {
         statusEl.innerText = "SAFE";
         statusEl.style.background = "green";
         currentPolygon.setStyle({ color: 'green' });
+        set(ref(db, 'animal/status'), "SAFE");
     } else {
         statusEl.innerText = "OUTSIDE";
         statusEl.style.background = "red";
         currentPolygon.setStyle({ color: 'red' });
+        set(ref(db, 'animal/status'), "OUTSIDE");
 
         if (Notification.permission === "granted") {
             new Notification("Animal Left Fence!");
