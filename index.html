@@ -12,27 +12,26 @@
 
 body {
   margin:0;
-  font-family: 'Segoe UI', Arial, sans-serif;
+  font-family:'Segoe UI', Arial, sans-serif;
   display:flex;
   flex-direction:column;
   height:100vh;
   background:#0f172a;
 }
 
-/* ===== TOP INFO BAR ===== */
+/* TOP BAR */
 #info {
   background:#111827;
   color:white;
   padding:10px 15px;
   box-shadow:0 3px 10px rgba(0,0,0,0.3);
-  z-index:1000;
 }
 
 #coords {
   display:flex;
   justify-content:space-between;
-  font-size:14px;
   flex-wrap:wrap;
+  font-size:14px;
 }
 
 #status {
@@ -45,12 +44,12 @@ body {
   transition:0.3s;
 }
 
-/* ===== MAP ===== */
+/* MAP */
 #map {
   flex:1;
 }
 
-/* ===== CLEAN TOOLBAR ===== */
+/* CLEAN TOOLBAR */
 .leaflet-draw-toolbar {
   background:white !important;
   border-radius:10px !important;
@@ -65,9 +64,8 @@ body {
   line-height:34px !important;
 }
 
-/* ===== MOBILE ===== */
+/* MOBILE */
 @media (max-width:768px) {
-
   #coords {
     flex-direction:column;
     gap:4px;
@@ -107,10 +105,15 @@ body {
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getDatabase, ref, onValue, set } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
-/* ===== FIREBASE CONFIG ===== */
+/* ===== YOUR FIREBASE CREDENTIALS (UNCHANGED) ===== */
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  databaseURL: "YOUR_DATABASE_URL"
+  apiKey: "AIzaSyAc5p2eXYUXctH00qCOVlK-OGX9KmnQHqE",
+  authDomain: "animaltracker-4c1ae.firebaseapp.com",
+  databaseURL: "https://animaltracker-4c1ae-default-rtdb.firebaseio.com",
+  projectId: "animaltracker-4c1ae",
+  storageBucket: "animaltracker-4c1ae.firebasestorage.app",
+  messagingSenderId: "433053348974",
+  appId: "1:433053348974:web:ac49af5191dfb32f21227f"
 };
 
 const app = initializeApp(firebaseConfig);
@@ -119,9 +122,10 @@ const db = getDatabase(app);
 /* ===== MAP SETUP ===== */
 const map = L.map('map').setView([-1.2921, 36.8219], 15);
 
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  maxZoom: 19
-}).addTo(map);
+L.tileLayer(
+  'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+  { maxZoom:19 }
+).addTo(map);
 
 /* ===== CLEAN ANIMAL MARKER ===== */
 const animalIcon = L.divIcon({
@@ -135,11 +139,11 @@ const animalIcon = L.divIcon({
       box-shadow:0 0 8px rgba(0,0,0,0.5);
     "></div>
   `,
-  className: "",
-  iconSize: [18,18]
+  className:"",
+  iconSize:[18,18]
 });
 
-let marker = L.marker([-1.2921, 36.8219], {icon: animalIcon}).addTo(map);
+let marker = L.marker([-1.2921, 36.8219], {icon:animalIcon}).addTo(map);
 
 /* ===== DRAW FENCE ===== */
 const drawnItems = new L.FeatureGroup();
@@ -150,8 +154,8 @@ const drawControl = new L.Control.Draw({
   draw: {
     polygon: {
       shapeOptions: {
-        color: '#16a34a',
-        weight: 3
+        color:'#16a34a',
+        weight:3
       }
     },
     rectangle:false,
@@ -159,11 +163,12 @@ const drawControl = new L.Control.Draw({
     marker:false,
     polyline:false
   },
-  edit: { featureGroup: drawnItems }
+  edit:{ featureGroup: drawnItems }
 });
+
 map.addControl(drawControl);
 
-/* ===== SAVE FENCE TO FIREBASE ===== */
+/* ===== SAVE FENCE ===== */
 map.on(L.Draw.Event.CREATED, function(e) {
 
   drawnItems.clearLayers();
@@ -172,38 +177,42 @@ map.on(L.Draw.Event.CREATED, function(e) {
 
   const coords = currentPolygon.getLatLngs()[0];
 
-  coords.forEach((point,index) => {
-    set(ref(db, 'fence/' + index), {
-      lat: point.lat,
-      lon: point.lng
+  coords.forEach((point,index)=>{
+    set(ref(db,'fence/'+index),{
+      lat:point.lat,
+      lon:point.lng
     });
   });
 
   alert("Fence Saved!");
 });
 
-/* ===== LOAD FENCE FROM FIREBASE ===== */
-onValue(ref(db,'fence'), snapshot => {
+/* ===== LOAD FENCE ===== */
+onValue(ref(db,'fence'), snapshot=>{
 
   drawnItems.clearLayers();
   const data = snapshot.val();
   if(!data) return;
 
-  const coords = Object.values(data).map(p => [p.lat, p.lon]);
+  let coords = [];
+  Object.keys(data).forEach(key=>{
+    coords.push([data[key].lat, data[key].lon]);
+  });
 
-  if(coords.length > 0){
-    currentPolygon = L.polygon(coords, {color:'#16a34a'});
+  if(coords.length>0){
+    currentPolygon = L.polygon(coords,{color:'#16a34a'});
     drawnItems.addLayer(currentPolygon);
   }
 });
 
-/* ===== POINT IN POLYGON CHECK ===== */
+/* ===== POINT IN POLYGON ===== */
 function pointInPolygon(point, vs){
-  let x=point[0],y=point[1],inside=false;
+  let x=point[0], y=point[1];
+  let inside=false;
 
   for(let i=0,j=vs.length-1;i<vs.length;j=i++){
-    let xi=vs[i][0],yi=vs[i][1];
-    let xj=vs[j][0],yj=vs[j][1];
+    let xi=vs[i][0], yi=vs[i][1];
+    let xj=vs[j][0], yj=vs[j][1];
 
     let intersect=((yi>y)!=(yj>y)) &&
       (x<(xj-xi)*(y-yi)/(yj-yi)+xi);
@@ -213,25 +222,25 @@ function pointInPolygon(point, vs){
   return inside;
 }
 
-/* ===== LISTEN TO ANIMAL GPS ===== */
-onValue(ref(db,'animal'), snapshot => {
+/* ===== LISTEN TO GPS ===== */
+onValue(ref(db,'animal'), snapshot=>{
 
-  const data = snapshot.val();
-  if(!data || !data.lat || !data.lon) return;
+  const data=snapshot.val();
+  if(!data||!data.lat||!data.lon) return;
 
-  const latVal = data.lat;
-  const lonVal = data.lon;
+  const lat=data.lat;
+  const lon=data.lon;
 
-  document.getElementById("lat").innerText = latVal.toFixed(6);
-  document.getElementById("lon").innerText = lonVal.toFixed(6);
+  document.getElementById("lat").innerText = lat.toFixed(6);
+  document.getElementById("lon").innerText = lon.toFixed(6);
 
-  marker.setLatLng([latVal, lonVal]);
-  map.setView([latVal, lonVal], 17);
+  marker.setLatLng([lat,lon]);
+  map.setView([lat,lon],17);
 
   if(!currentPolygon) return;
 
-  const polyCoords = currentPolygon.getLatLngs()[0].map(p => [p.lat,p.lng]);
-  const inside = pointInPolygon([latVal,lonVal], polyCoords);
+  const polyCoords = currentPolygon.getLatLngs()[0].map(p=>[p.lat,p.lng]);
+  const inside = pointInPolygon([lat,lon], polyCoords);
 
   const statusEl = document.getElementById("status");
 
@@ -239,8 +248,8 @@ onValue(ref(db,'animal'), snapshot => {
     statusEl.innerText="SAFE";
     statusEl.style.background="#16a34a";
     currentPolygon.setStyle({color:'#16a34a'});
-  } 
-  else {
+  }
+  else{
     statusEl.innerText="OUTSIDE";
     statusEl.style.background="#dc2626";
     currentPolygon.setStyle({color:'#dc2626'});
