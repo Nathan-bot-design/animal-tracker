@@ -6,161 +6,154 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
     <link rel="stylesheet" href="https://unpkg.com/leaflet-draw/dist/leaflet.draw.css"/>
     <style>
-        body {
-            margin: 0;
-            font-family: Arial;
-        }
-        #map {
-            height: 85vh;
-        }
-        #info {
-            padding: 12px;
-            background: #111;
-            color: white;
-            font-size: 18px;
-        }
-        #status {
-            font-weight: bold;
-            padding: 5px 10px;
-            border-radius: 6px;
-        }
+        body { margin: 0; font-family: Arial; }
+        #map { height: 85vh; }
+        #info { padding: 12px; background: #111; color: white; font-size: 18px; }
+        #status { font-weight: bold; padding: 5px 10px; border-radius: 6px; }
     </style>
 </head>
 <body>
-    <div id="info">
-        Latitude: <span id="lat">Waiting...</span> | Longitude: <span id="lon">Waiting...</span>
-        <br><br>
-        Status: <span id="status">Waiting...</span>
-    </div>
-    <div id="map"></div>
 
-    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-    <script src="https://unpkg.com/leaflet-draw/dist/leaflet.draw.js"></script>
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-        import { getDatabase, ref, onValue, set } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+<div id="info">
+    Latitude: <span id="lat">Waiting...</span> |
+    Longitude: <span id="lon">Waiting...</span>
+    <br><br>
+    Status: <span id="status">Waiting...</span>
+</div>
 
-        // Firebase configuration
-        const firebaseConfig = {
-            apiKey: "AIzaSyAc5p2eXYUXctH00qCOVlK-OGX9KmnQHqE",
-            authDomain: "animaltracker-4c1ae.firebaseapp.com",
-            databaseURL: "https://animaltracker-4c1ae-default-rtdb.firebaseio.com",
-            projectId: "animaltracker-4c1ae",
-            storageBucket: "animaltracker-4c1ae.firebasestorage.app",
-            messagingSenderId: "433053348974",
-            appId: "1:433053348974:web:ac49af5191dfb32f21227f"
-        };
+<div id="map"></div>
 
-        const app = initializeApp(firebaseConfig);
-        const db = getDatabase(app);
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet-draw/dist/leaflet.draw.js"></script>
 
-        // Initialize map
-        const map = L.map('map').setView([-1.2921, 36.8219], 15);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+<script type="module">
 
-        let marker = L.marker([-1.2921, 36.8219]).addTo(map);
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getDatabase, ref, onValue, set, remove } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
-        // Draw tools
-        const drawnItems = new L.FeatureGroup();
-        map.addLayer(drawnItems);
-        let currentPolygon = null;
+const firebaseConfig = {
+    apiKey: "AIzaSyAc5p2eXYUXctH00qCOVlK-OGX9KmnQHqE",
+    authDomain: "animaltracker-4c1ae.firebaseapp.com",
+    databaseURL: "https://animaltracker-4c1ae-default-rtdb.firebaseio.com",
+    projectId: "animaltracker-4c1ae",
+    storageBucket: "animaltracker-4c1ae.firebasestorage.app",
+    messagingSenderId: "433053348974",
+    appId: "1:433053348974:web:ac49af5191dfb32f21227f"
+};
 
-        const drawControl = new L.Control.Draw({
-            draw: {
-                polygon: true,
-                rectangle: false,
-                circle: false,
-                marker: false,
-                polyline: false
-            },
-            edit: { featureGroup: drawnItems }
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+
+const map = L.map('map').setView([-1.2921, 36.8219], 15);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+let marker = L.marker([-1.2921, 36.8219]).addTo(map);
+
+const drawnItems = new L.FeatureGroup();
+map.addLayer(drawnItems);
+let currentPolygon = null;
+
+const drawControl = new L.Control.Draw({
+    draw: {
+        polygon: true,
+        rectangle: false,
+        circle: false,
+        marker: false,
+        polyline: false
+    },
+    edit: { featureGroup: drawnItems }
+});
+map.addControl(drawControl);
+
+map.on(L.Draw.Event.CREATED, function (e) {
+
+    drawnItems.clearLayers();
+    currentPolygon = e.layer;
+    drawnItems.addLayer(currentPolygon);
+
+    remove(ref(db, 'fence')); // 🔥 clear old fence
+
+    const coords = currentPolygon.getLatLngs()[0];
+    coords.forEach((point, index) => {
+        set(ref(db, 'fence/' + index), {
+            lat: point.lat,
+            lon: point.lng
         });
-        map.addControl(drawControl);
+    });
 
-        // Save fence
-        map.on(L.Draw.Event.CREATED, function (e) {
-            drawnItems.clearLayers();
-            currentPolygon = e.layer;
-            drawnItems.addLayer(currentPolygon);
+    alert("Fence Saved!");
+});
 
-            const coords = currentPolygon.getLatLngs()[0];
-            coords.forEach((point, index) => {
-                set(ref(db, 'fence/' + index), { lat: point.lat, lon: point.lng });
-            });
+onValue(ref(db, 'fence'), (snapshot) => {
 
-            alert("Fence Saved!");
-        });
+    drawnItems.clearLayers();
+    const data = snapshot.val();
+    if (!data) return;
 
-        // Load fence
-        onValue(ref(db, 'fence'), (snapshot) => {
-            drawnItems.clearLayers();
-            const data = snapshot.val();
-            if (!data) return;
+    let coords = [];
+    Object.keys(data).forEach(key => {
+        coords.push([data[key].lat, data[key].lon]);
+    });
 
-            let coords = [];
-            Object.keys(data).forEach(key => {
-                coords.push([data[key].lat, data[key].lon]);
-            });
+    if (coords.length > 0) {
+        currentPolygon = L.polygon(coords, { color: 'green' });
+        drawnItems.addLayer(currentPolygon);
+    }
+});
 
-            if (coords.length > 0) {
-                currentPolygon = L.polygon(coords, { color: 'green' });
-                drawnItems.addLayer(currentPolygon);
-            }
-        });
+function pointInPolygon(point, vs) {
+    let x = point[0], y = point[1];
+    let inside = false;
+    for (let i = 0, j = vs.length - 1; i < vs.length; j = i++) {
+        let xi = vs[i][0], yi = vs[i][1];
+        let xj = vs[j][0], yj = vs[j][1];
+        let intersect = ((yi > y) != (yj > y)) &&
+            (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+        if (intersect) inside = !inside;
+    }
+    return inside;
+}
 
-        // Check if point is inside polygon
-        function pointInPolygon(point, vs) {
-            let x = point[0], y = point[1];
-            let inside = false;
-            for (let i = 0, j = vs.length - 1; i < vs.length; j = i++) {
-                let xi = vs[i][0], yi = vs[i][1];
-                let xj = vs[j][0], yj = vs[j][1];
-                let intersect = ((yi > y) != (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
-                if (intersect) inside = !inside;
-            }
-            return inside;
+onValue(ref(db, 'animal'), (snapshot) => {
+
+    const data = snapshot.val();
+    if (!data || !data.lat || !data.lon) return;
+
+    const lat = data.lat;
+    const lon = data.lon;
+
+    document.getElementById("lat").innerText = lat;
+    document.getElementById("lon").innerText = lon;
+
+    marker.setLatLng([lat, lon]);
+    map.setView([lat, lon], 17);
+
+    if (!currentPolygon) return;
+
+    const polyCoords = currentPolygon.getLatLngs()[0].map(p => [p.lat, p.lng]);
+    const inside = pointInPolygon([lat, lon], polyCoords);
+
+    const statusEl = document.getElementById("status");
+
+    if (inside) {
+        statusEl.innerText = "SAFE";
+        statusEl.style.background = "green";
+        currentPolygon.setStyle({ color: 'green' });
+    } else {
+        statusEl.innerText = "OUTSIDE";
+        statusEl.style.background = "red";
+        currentPolygon.setStyle({ color: 'red' });
+
+        if (Notification.permission === "granted") {
+            new Notification("Animal Left Fence!");
         }
+    }
+});
 
-        // Listen to animal movement
-        onValue(ref(db, 'animal'), (snapshot) => {
-            const data = snapshot.val();
-            if (!data || !data.lat || !data.lon) return;
+if ("Notification" in window) {
+    Notification.requestPermission();
+}
 
-            const lat = data.lat;
-            const lon = data.lon;
-
-            document.getElementById("lat").innerText = lat;
-            document.getElementById("lon").innerText = lon;
-
-            marker.setLatLng([lat, lon]);
-            map.setView([lat, lon], 17);
-
-            if (!currentPolygon) return;
-
-            const polyCoords = currentPolygon.getLatLngs()[0].map(p => [p.lat, p.lng]);
-            const inside = pointInPolygon([lat, lon], polyCoords);
-
-            const statusEl = document.getElementById("status");
-            if (inside) {
-                statusEl.innerText = "SAFE";
-                statusEl.style.background = "green";
-                currentPolygon.setStyle({ color: 'green' });
-            } else {
-                statusEl.innerText = "OUTSIDE";
-                statusEl.style.background = "red";
-                currentPolygon.setStyle({ color: 'red' });
-
-                // Phone notification
-                if (Notification.permission === "granted") {
-                    new Notification("Animal Left Fence!");
-                }
-            }
-        });
-
-        // Request notification permission
-        if ("Notification" in window) {
-            Notification.requestPermission();
-        }
-    </script>
+</script>
 </body>
 </html>
