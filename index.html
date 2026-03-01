@@ -8,9 +8,7 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet-draw/dist/leaflet.draw.css"/>
 
 <style>
-* {
-  box-sizing: border-box;
-}
+* { box-sizing: border-box; }
 
 body {
   margin:0;
@@ -21,80 +19,69 @@ body {
   background:#0f172a;
 }
 
-/* INFO PANEL */
+/* ===== TOP INFO BAR ===== */
 #info {
   background:#111827;
   color:white;
-  padding:15px;
-  box-shadow:0 4px 10px rgba(0,0,0,0.3);
+  padding:10px 15px;
+  box-shadow:0 3px 10px rgba(0,0,0,0.3);
   z-index:1000;
 }
 
 #coords {
   display:flex;
   justify-content:space-between;
+  font-size:14px;
   flex-wrap:wrap;
-  font-size:16px;
 }
 
 #status {
-  margin-top:10px;
-  padding:12px;
-  border-radius:8px;
+  margin-top:8px;
+  padding:8px;
+  border-radius:6px;
   text-align:center;
-  font-size:22px;
+  font-size:18px;
   font-weight:bold;
   transition:0.3s;
 }
 
-/* MAP */
+/* ===== MAP ===== */
 #map {
   flex:1;
 }
 
-/* Modern Floating Toolbar */
+/* ===== CLEAN TOOLBAR ===== */
 .leaflet-draw-toolbar {
   background:white !important;
-  border-radius:12px !important;
-  padding:6px !important;
-  box-shadow:0 4px 15px rgba(0,0,0,0.3);
+  border-radius:10px !important;
+  padding:4px !important;
+  box-shadow:0 4px 12px rgba(0,0,0,0.25);
 }
 
-.leaflet-draw-toolbar a {
-  width:42px !important;
-  height:42px !important;
-  line-height:42px !important;
-  border-radius:8px !important;
-}
-
-.leaflet-control-zoom {
-  border-radius:12px !important;
-  overflow:hidden;
-  box-shadow:0 4px 15px rgba(0,0,0,0.3);
-}
-
+.leaflet-draw-toolbar a,
 .leaflet-control-zoom a {
-  width:42px !important;
-  height:42px !important;
-  line-height:42px !important;
+  width:34px !important;
+  height:34px !important;
+  line-height:34px !important;
 }
 
-/* Mobile Optimisation */
-@media (max-width: 768px) {
+/* ===== MOBILE ===== */
+@media (max-width:768px) {
+
   #coords {
     flex-direction:column;
-    gap:5px;
-  }
-
-  #status {
-    font-size:18px;
+    gap:4px;
   }
 
   .leaflet-draw-toolbar a,
   .leaflet-control-zoom a {
-    width:48px !important;
-    height:48px !important;
-    line-height:48px !important;
+    width:44px !important;
+    height:44px !important;
+    line-height:44px !important;
+  }
+
+  #status {
+    font-size:16px;
   }
 }
 </style>
@@ -104,8 +91,8 @@ body {
 
 <div id="info">
   <div id="coords">
-    <div>📍 Latitude: <span id="lat">Waiting...</span></div>
-    <div>📍 Longitude: <span id="lon">Waiting...</span></div>
+    <div>Latitude: <span id="lat">Waiting...</span></div>
+    <div>Longitude: <span id="lon">Waiting...</span></div>
   </div>
   <div id="status">Waiting...</div>
 </div>
@@ -120,6 +107,7 @@ body {
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getDatabase, ref, onValue, set } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
+/* ===== FIREBASE CONFIG ===== */
 const firebaseConfig = {
   apiKey: "YOUR_API_KEY",
   databaseURL: "YOUR_DATABASE_URL"
@@ -128,27 +116,32 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
-// Initialize Map
+/* ===== MAP SETUP ===== */
 const map = L.map('map').setView([-1.2921, 36.8219], 15);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-// Better Custom Marker (Modern Pin)
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  maxZoom: 19
+}).addTo(map);
+
+/* ===== CLEAN ANIMAL MARKER ===== */
 const animalIcon = L.divIcon({
-  html: `<div style="
-      background:#16a34a;
-      width:24px;
-      height:24px;
+  html: `
+    <div style="
+      width:18px;
+      height:18px;
+      background:#2563eb;
       border-radius:50%;
-      border:4px solid white;
-      box-shadow:0 0 10px rgba(0,0,0,0.4);
-    "></div>`,
+      border:3px solid white;
+      box-shadow:0 0 8px rgba(0,0,0,0.5);
+    "></div>
+  `,
   className: "",
-  iconSize: [24,24]
+  iconSize: [18,18]
 });
 
 let marker = L.marker([-1.2921, 36.8219], {icon: animalIcon}).addTo(map);
 
-// Drawn Fence
+/* ===== DRAW FENCE ===== */
 const drawnItems = new L.FeatureGroup();
 map.addLayer(drawnItems);
 let currentPolygon = null;
@@ -170,64 +163,74 @@ const drawControl = new L.Control.Draw({
 });
 map.addControl(drawControl);
 
-// Save Fence
+/* ===== SAVE FENCE TO FIREBASE ===== */
 map.on(L.Draw.Event.CREATED, function(e) {
+
   drawnItems.clearLayers();
   currentPolygon = e.layer;
   drawnItems.addLayer(currentPolygon);
 
   const coords = currentPolygon.getLatLngs()[0];
+
   coords.forEach((point,index) => {
     set(ref(db, 'fence/' + index), {
-      lat:point.lat,
-      lon:point.lng
+      lat: point.lat,
+      lon: point.lng
     });
   });
 
   alert("Fence Saved!");
 });
 
-// Load Fence
+/* ===== LOAD FENCE FROM FIREBASE ===== */
 onValue(ref(db,'fence'), snapshot => {
+
   drawnItems.clearLayers();
   const data = snapshot.val();
   if(!data) return;
 
-  const coords = Object.values(data).map(p => [p.lat,p.lon]);
-  if(coords.length>0){
-    currentPolygon = L.polygon(coords,{color:'#16a34a'});
+  const coords = Object.values(data).map(p => [p.lat, p.lon]);
+
+  if(coords.length > 0){
+    currentPolygon = L.polygon(coords, {color:'#16a34a'});
     drawnItems.addLayer(currentPolygon);
   }
 });
 
-// Point In Polygon
+/* ===== POINT IN POLYGON CHECK ===== */
 function pointInPolygon(point, vs){
   let x=point[0],y=point[1],inside=false;
+
   for(let i=0,j=vs.length-1;i<vs.length;j=i++){
-    let xi=vs[i][0],yi=vs[i][1],xj=vs[j][0],yj=vs[j][1];
-    let intersect=((yi>y)!=(yj>y))&&(x<(xj-xi)*(y-yi)/(yj-yi)+xi);
+    let xi=vs[i][0],yi=vs[i][1];
+    let xj=vs[j][0],yj=vs[j][1];
+
+    let intersect=((yi>y)!=(yj>y)) &&
+      (x<(xj-xi)*(y-yi)/(yj-yi)+xi);
+
     if(intersect) inside=!inside;
   }
   return inside;
 }
 
-// Listen To GPS
-onValue(ref(db,'animal'), snapshot=>{
-  const data=snapshot.val();
-  if(!data||!data.lat||!data.lon) return;
+/* ===== LISTEN TO ANIMAL GPS ===== */
+onValue(ref(db,'animal'), snapshot => {
 
-  const latVal=data.lat;
-  const lonVal=data.lon;
+  const data = snapshot.val();
+  if(!data || !data.lat || !data.lon) return;
+
+  const latVal = data.lat;
+  const lonVal = data.lon;
 
   document.getElementById("lat").innerText = latVal.toFixed(6);
   document.getElementById("lon").innerText = lonVal.toFixed(6);
 
-  marker.setLatLng([latVal,lonVal]);
-  map.setView([latVal,lonVal],17);
+  marker.setLatLng([latVal, lonVal]);
+  map.setView([latVal, lonVal], 17);
 
   if(!currentPolygon) return;
 
-  const polyCoords = currentPolygon.getLatLngs()[0].map(p=>[p.lat,p.lng]);
+  const polyCoords = currentPolygon.getLatLngs()[0].map(p => [p.lat,p.lng]);
   const inside = pointInPolygon([latVal,lonVal], polyCoords);
 
   const statusEl = document.getElementById("status");
@@ -236,7 +239,8 @@ onValue(ref(db,'animal'), snapshot=>{
     statusEl.innerText="SAFE";
     statusEl.style.background="#16a34a";
     currentPolygon.setStyle({color:'#16a34a'});
-  } else {
+  } 
+  else {
     statusEl.innerText="OUTSIDE";
     statusEl.style.background="#dc2626";
     currentPolygon.setStyle({color:'#dc2626'});
@@ -247,11 +251,12 @@ onValue(ref(db,'animal'), snapshot=>{
   }
 });
 
-// Notifications
+/* ===== NOTIFICATIONS ===== */
 if("Notification" in window){
   Notification.requestPermission();
 }
 
 </script>
+
 </body>
 </html>
